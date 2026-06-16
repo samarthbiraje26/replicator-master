@@ -1,0 +1,85 @@
+spring:
+  application:
+    name: S3 Replicator Service
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/file-mirror-replicator
+    username: root
+    password: root
+
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: create
+    database-platform: org.hibernate.dialect.MySQLDialect
+
+
+
+  kafka:
+      bootstrap-servers: localhost:9092
+      listener:
+        ack-mode: manual
+      consumer:
+        group-id: file-upload-consumer-group
+#        consume only latest messages ignoring older
+        auto-offset-reset: latest
+        enable-auto-commit: false
+
+        key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+        value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+
+        properties:
+          spring.deserializer.key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
+          spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+
+          spring.json.trusted.packages: com.aniket.mirror.events
+
+      producer:
+        bootstrap-servers: localhost:9092
+        acks: all
+        key-serializer: org.apache.kafka.common.serialization.StringSerializer
+        value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+        retries: 3
+
+logging:
+  file:
+    name: logs/app.log
+
+server:
+  servlet:
+    context-path: /api
+  port: 8082
+
+
+aws:
+  s3:
+    bucket: amzn-file-mirror-bucket
+  region: ap-south-1
+
+
+#customproperties
+mirror:
+  enabled-providers:
+    - STREAM_TAPE
+    - KRAKEN_FILE
+  recheck:
+    period-days: 30
+    cron: "0 0 0,12 * * *"
+    batch-size: 50
+  polling:
+    dispatch-delay-ms: 30000
+    batch-size: 50
+  kafka:
+    file-upload-topic: file_upload
+    file-mirrored-topic: file_mirrored
+    file-mirror-check-topic: file_mirror_check
+    retry:
+      max-attempts: 5
+      backoff-ms: 1000
+  stream-tape:
+    api-login: ${STREAMTAPE_API_LOGIN:}
+    api-key: ${STREAMTAPE_API_KEY:}
+    initial-poll-delay-seconds: 10
+    poll-max-attempts: 3
+    backoff-base-seconds: 60
+    backoff-max-seconds: 1800
